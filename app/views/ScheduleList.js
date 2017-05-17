@@ -1,5 +1,7 @@
 import React from 'react';
-import { StyleSheet, Text, View, Image, SectionList, Button, TouchableOpacity } from 'react-native';
+import {
+  StyleSheet, Text, View, Image, SectionList, Button, TouchableOpacity, StatusBar, Animated, Platform,
+} from 'react-native';
 import { autobind as bind } from 'core-decorators';
 import moment from 'moment';
 import headerBackground from '../resources/hero.png';
@@ -8,6 +10,12 @@ import { LIGHT_GREY } from '../resources/Styles';
 import ToggleButton from '../components/ToggleButton';
 import Avatar from '../components/Avatar';
 import Schedule from '../resources/Schedule';
+import { sanitizeDate } from '../util';
+
+const AnimatedSectionList = Animated.createAnimatedComponent(SectionList);
+const HEADER_MAX_HEIGHT = 300;
+const HEADER_MIN_HEIGHT = Platform.OS === 'ios' ? 60 : 73;
+const HEADER_SCROLL_DISTANCE = HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT;
 
 export default class ScheduleList extends React.Component {
 
@@ -17,7 +25,17 @@ export default class ScheduleList extends React.Component {
 
   state = {
     selectedDay: 0,
+    scrollY: new Animated.Value(0),
   };
+
+  constructor(props) {
+    super(props);
+
+    this.scrollHandler = Animated.event(
+      [{ nativeEvent: { contentOffset: { y: this.state.scrollY } } }],
+      { useNativeDriver: true },
+    );
+  }
 
   @bind
   onDayChange(selectedDay) {
@@ -35,16 +53,55 @@ export default class ScheduleList extends React.Component {
   }
 
   @bind
+  renderHeader() {
+
+    const translateY = this.state.scrollY.interpolate({
+      inputRange: [0, HEADER_SCROLL_DISTANCE],
+      outputRange: [0, -HEADER_SCROLL_DISTANCE],
+      extrapolate: 'clamp',
+    });
+
+    return (
+      <Animated.View style={[styles.header, { transform: [{ translateY }] }]}>
+        <View style={styles.heroWrapper}>
+          <Image source={headerBackground} style={styles.hero} />
+          <View style={styles.heroOverlay} />
+        </View>
+        <Image style={styles.headerLogo} source={logo} />
+        <Text style={styles.headerText}>React Europe</Text>
+        <ToggleButton
+          items={Object.keys(Schedule)}
+          style={styles.buttons}
+          onChange={this.onDayChange}
+          activeIndex={this.state.selectedDay}
+        />
+        <View style={styles.feedbackButton}>
+          <Button title="Feedback" onPress={this.goToFeedback} />
+        </View>
+      </Animated.View>
+    );
+  }
+
+  @bind
+  shouldListItemUpdate(newItem, oldItem) {
+    return newItem !== oldItem;
+  }
+
+  @bind
   renderItem({ item }) {
     return (
       <TouchableOpacity onPress={() => this.goToDetails(item)}>
         <View style={styles.listItem}>
           <View style={{ flexShrink: 1 }}>
             <Text style={styles.entryName}>{item.title}</Text>
-            {item.speaker ? <Text>{item.speaker.name}</Text> : null}
+            {item.speakers.map(speaker => {
+              return <Text key={`${speaker.github}#${speaker.name}`}>{speaker.name}</Text>;
+            })}
           </View>
           <View>
-            {item.speaker ? <Avatar img={item.speaker.avatar} /> : null}
+            {item.speakers.map(speaker => {
+              return <Avatar key={`${speaker.github}#${speaker.name}`} img={speaker.avatarUrl} size={40} />;
+            })}
           </View>
         </View>
       </TouchableOpacity>
@@ -55,30 +112,18 @@ export default class ScheduleList extends React.Component {
 
     return (
       <View style={styles.page}>
-        <View style={styles.header}>
-          <View style={styles.heroWrapper}>
-            <Image source={headerBackground} style={styles.hero} />
-            <View style={styles.heroOverlay} />
-          </View>
-          <Image style={styles.headerLogo} source={logo} />
-          <Text style={styles.headerText}>React Europe</Text>
-          <ToggleButton
-            items={Object.keys(Schedule)}
-            style={styles.buttons}
-            onChange={this.onDayChange}
-            activeIndex={this.state.selectedDay}
-          />
-          <View style={styles.feedbackButton}>
-            <Button title="Feedback" onPress={this.goToFeedback} />
-          </View>
-        </View>
-
-        <SectionList
+        <AnimatedSectionList
+          contentContainerStyle={{ marginTop: HEADER_MAX_HEIGHT }}
           renderItem={this.renderItem}
           renderSectionHeader={renderSectionHeader}
           sections={Schedule[Object.keys(Schedule)[this.state.selectedDay]]}
           keyExtractor={extractKey}
+          scrollEventThrottle={16}
+          onScroll={this.scrollHandler}
+          shouldItemUpdate={this.shouldListItemUpdate}
+          refreshing={false}
         />
+        {this.renderHeader()}
       </View>
     );
   }
@@ -91,7 +136,7 @@ function extractKey(item) {
 // eslint-disable-next-line react/prop-types
 function renderSectionHeader({ section }) {
 
-  const date = moment(section.key.replace(' ', 'T').replace(' +0000 UTC', 'Z'));
+  const date = moment(sanitizeDate(section.key));
 
   return <Text style={styles.entryTime}>{date.format('LT')} ({date.fromNow()})</Text>;
 }
@@ -104,6 +149,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 50,
+    paddingTop: 50 + StatusBar.currentHeight,
+
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#03A9F4',
+    overflow: 'hidden',
+    height: HEADER_MAX_HEIGHT,
   },
   headerLogo: {
     height: 70,
@@ -138,7 +192,7 @@ const styles = StyleSheet.create({
   },
   feedbackButton: {
     position: 'absolute',
-    top: 10,
+    top: 10 + StatusBar.currentHeight,
     right: 5,
   },
   entryTime: {

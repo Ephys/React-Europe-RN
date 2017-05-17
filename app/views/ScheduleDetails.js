@@ -1,8 +1,11 @@
 import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { BLUE, WHITE, LIGHT_GREY } from '../resources/Styles';
+import { ScrollView, StyleSheet, Text, View, StatusBar } from 'react-native';
+import moment from 'moment';
+import { autobind as bind } from 'core-decorators';
+import { BLUE, LIGHT_GREY, WHITE } from '../resources/Styles';
 import Avatar from '../components/Avatar';
 import Schedule from '../resources/Schedule';
+import { coloredNavBar, sanitizeDate } from '../util';
 
 function findInSchedule(id) {
   const keys = Object.keys(Schedule);
@@ -27,6 +30,15 @@ function findInSchedule(id) {
 
 export default class ScheduleDetails extends React.Component {
 
+  static navigationOptions(arg) {
+    const item = findInSchedule(arg.navigation.state.params.item);
+
+    return {
+      title: item.title,
+      ...coloredNavBar(BLUE, WHITE),
+    };
+  }
+
   constructor(props) {
     super(props);
 
@@ -42,40 +54,37 @@ export default class ScheduleDetails extends React.Component {
     this.displayedItem = findInSchedule(itemId);
   }
 
+  @bind
+  renderSpeaker(speaker) {
+    return (
+      <View key={speaker.github + speaker.twitter} style={[styles.author, styles.container]}>
+        <Avatar img={speaker.avatarUrl} />
+        <View style={styles.usernameWrapper}>
+          <Text style={styles.username}>{speaker.name}</Text>
+          <Text style={styles.speakerBio}>{speaker.bio}</Text>
+        </View>
+      </View>
+    );
+  }
+
   render() {
 
     return (
-      <View style={styles.page}>
+      <ScrollView style={{ flex: 1 }}>
         <View style={styles.container}>
           <Text style={styles.title}>{this.displayedItem.title}</Text>
-          <Text style={styles.subtitle}>Thursday, May 18, 10-10:45 AM</Text>
+          <Text style={styles.subtitle}>{moment(sanitizeDate(this.displayedItem.startDate)).format('LLLL')}</Text>
           <Text style={styles.description}>
             {this.displayedItem.description}
           </Text>
         </View>
-        <View style={[styles.author, styles.container]}>
-          <Avatar img={this.displayedItem} />
-          <View style={styles.usernameWrapper}>
-            <Text style={styles.username}>Lucy Vatne</Text>
-            <Text style={styles.authorTitle}>The best doggo</Text>
-          </View>
-        </View>
-      </View>
+        {this.displayedItem.speakers.map(this.renderSpeaker)}
+      </ScrollView>
     );
   }
 }
 
 const styles = StyleSheet.create({
-  page: {
-    borderTopColor: BLUE,
-    borderTopWidth: 80,
-    flex: 1,
-    backgroundColor: WHITE,
-    // backgroundColor: '#fff',
-    // alignItems: 'center',
-    // justifyContent: 'center',
-  },
-
   container: {
     padding: 20,
     paddingTop: 40,
@@ -107,9 +116,10 @@ const styles = StyleSheet.create({
 
   usernameWrapper: {
     paddingLeft: 20,
+    flexShrink: 1,
   },
 
-  authorTitle: {
+  speakerBio: {
     fontSize: 17,
   },
 

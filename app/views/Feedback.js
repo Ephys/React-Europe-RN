@@ -1,12 +1,20 @@
 import React from 'react';
-import { StyleSheet, Text, ScrollView, View, Slider, Switch, Button } from 'react-native';
+import { StyleSheet, Text, ScrollView, View, Slider, Switch, Button, Modal } from 'react-native';
 import { autobind as bind } from 'core-decorators';
 import TextInput from '../components/TextInput';
 import { BLUE, WHITE } from '../resources/Styles';
+import { coloredNavBar } from '../util';
 
 export default class Feedback extends React.Component {
 
-  state = {};
+  static navigationOptions = {
+    title: 'feedback',
+    ...coloredNavBar(BLUE, WHITE),
+  };
+
+  state = {
+    modal: false,
+  };
 
   @bind
   onFullNameChange(fullName) {
@@ -14,17 +22,49 @@ export default class Feedback extends React.Component {
   }
 
   @bind
-  onSubmit() {}
+  onSubmit() {
+  }
+
+  @bind
+  openModal() {
+    this.setState({ modal: true });
+  }
+
+  @bind
+  closeModal() {
+    this.setState({ modal: false });
+  }
 
   render() {
     return (
       <View style={styles.page}>
-        <Text style={styles.header}>Feedback</Text>
+        <Modal
+          animationType="fade"
+          visible={this.state.modal}
+          onRequestClose={this.closeModal}
+          transparent
+          style={{
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <View
+            style={[
+              {
+                backgroundColor: 'white',
+                marginTop: 22,
+              },
+            ]}
+          >
+            <Text>Hello World!</Text>
+          </View>
+        </Modal>
 
         <ScrollView
           keyboardDismissMode="on-drag"
           style={styles.page}
         >
+          <Button title="Autofill Contact Info" onPress={this.openModal} />
           <Text style={styles.sectionTitle}>Contact Information</Text>
           <TextInput
             placeholder="Full name"
@@ -75,15 +115,6 @@ export default class Feedback extends React.Component {
 const styles = StyleSheet.create({
   page: {
     flex: 1,
-  },
-
-  header: {
-    backgroundColor: BLUE,
-    color: WHITE,
-    padding: 20,
-    paddingTop: 45,
-    textAlign: 'center',
-    flexDirection: 'row',
   },
 
   textarea: {
